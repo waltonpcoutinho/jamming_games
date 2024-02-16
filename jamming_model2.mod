@@ -1,5 +1,7 @@
 ###############################################################
-# AMPL model for the paper: Jamming Games for Fleets of Mobile Vehicles
+# AMPL model for the paper: Jamming Games for Fleets of Mobile 
+# Vehicles
+#
 # Authors: Jörg Fliege and Walton Coutinho
 # Date: 15/02/2024
 # Version: 0.0
@@ -10,7 +12,7 @@
 ########################## Model sets #########################
 ###############################################################
 
-# Set S is a set of fleets of agents
+# Set TEAMS is a set of fleets of agents
 set TEAMS;
 # Set of agents in each fleet
 set FLEET{TEAMS};
@@ -74,8 +76,10 @@ minimize Objective:
    0
 ;
 
+# Constraints
 subject to
 
+# Aux variables
 partial_f1_partial_p{t in TEAMS, i in FLEET[t], j in FLEET[t]: i !=j}:
    partial_f1_pow[i,j] = (varrho * dist[i, j]^(-alpha))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * dist[k, j]^(-alpha));
 
@@ -85,17 +89,7 @@ partial_f2_partial_p{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[
       (sigmasqr + varrho * sum{j in FLEET[t]: j != i} (pow_J[j, k] * dist[j, k]^(-alpha)))^2
    );
 
-partial_L_p{t in TEAMS, i in FLEET[t], j in FLEET[t]: j != i}:
-   partial_f1_pow[i,j] + lambda[i] - mu[i,j] = 0;
-
-partial_L_pJ{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
-   partial_f2_pow_J[i,k] + lambda[i] - mu[i,k] = 0;
-
-partial_L_x{t in TEAMS, i in FLEET[t]}:
-   partial_f1_x[i] - partial_f2_x[i] 
-   + ((c[i]*lambda[i])/(dist0[i]))*(x[i] - x0[i]) = 0;
-
-partial_f1_def{t in TEAMS, i in FLEET[t]}:
+partial_f1_x_def{t in TEAMS, i in FLEET[t]}:
    partial_f1_x[i] = sum{j in FLEET[t]: j != i}(
       (-varrho * pow[t, i, j] * alpha * (dist[i,j])^(-alpha - 2))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * dist[k, j]^(-alpha))
    )*(x[i] - x[j])
@@ -115,6 +109,18 @@ partial_f2_x_def{t in TEAMS, i in FLEET[t]}:
       *(x[i] - x[l])
    );
 
+# Lagrange critical points
+partial_L_p{t in TEAMS, i in FLEET[t], j in FLEET[t]: j != i}:
+   partial_f1_pow[i,j] + lambda[i] - mu[i,j] = 0;
+
+partial_L_pJ{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
+   partial_f2_pow_J[i,k] + lambda[i] - mu[i,k] = 0;
+
+partial_L_x{t in TEAMS, i in FLEET[t]}:
+   partial_f1_x[i] - partial_f2_x[i] 
+   + ((c[i]*lambda[i])/(dist0[i]))*(x[i] - x0[i]) = 0;
+
+# Complementarity conditions
 complementarity1{t in TEAMS, i in FLEET[t]}:
    0 <= lambda[i] complements (
       sum{j in FLEET[t]: j != i} pow[t, i, j]
@@ -135,18 +141,18 @@ complementarity3{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
 data;
 
 set TEAMS := 1 2;
-set FLEET[1] := 'A' 'B';
-set FLEET[2] := 'a' 'b';
+set FLEET[1] := 'a' 'b';
+set FLEET[2] := 'A' 'B';
 
 param varrho := 1;
-param alpha := 1;
+param alpha := 2;
 param sigmasqr := 1;
 
 param: x0 y0 maxpow c :=
-A 0 0 1 1
-B 0 0 1 1
-a 0 0 1 1
-b 0 0 1 1
+a -1 +1 1 1
+b +1 +1 1 1
+A -1 -1 1 1
+B +1 -1 1 1
 ;
 
 ###############################################################
@@ -169,3 +175,7 @@ display x0, y0, maxpow, c;
 display x, y, pow, pow_J;
 
 display dist0, dist;
+
+display lambda;
+
+display mu;

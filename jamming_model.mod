@@ -1,9 +1,11 @@
 ###############################################################
-# AMPL model for the paper: Jamming Games for Fleets of Mobile Vehicles
+# AMPL model for the paper: Jamming Games for Fleets of Mobile 
+# Vehicles
+#
 # Authors: Jörg Fliege and Walton Coutinho
 # Date: 11/02/2024
 # Version: 0.0
-# Known bugs: Many
+# Known bugs: Not tested
 ###############################################################
 
 ###############################################################
