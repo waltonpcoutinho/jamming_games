@@ -38,7 +38,7 @@ param c{f in S, i in F[f]}; # dimension W/m
 
 # Variables
 # Comms power received by agent j from agent i in fleet f, i != j
-var pow_R{f in S, i in F[f], j in F[f]: i != j} >= 0;
+var pow{f in S, i in F[f], j in F[f]: i != j} >= 0;
 
 # Jamming power received by agent i in f from agents k not in f
 var pow_J{f in S, i in F[f], foes in S, k in F[foes]: foes != f} >= 0;
@@ -76,17 +76,19 @@ minimize Objective:
 
 subject to
 
-derivative_pow_r{f in S, i in F[f], j in F[f]: i != j}:
+derivative_pow{f in S, i in F[f], j in F[f]: i != j}:
    (varrho * intra_dist[f,i,j]^(-alpha))/(sigmasqr + varrho * sum{foes in S, k in F[foes]: foes != f} pow_J[f, j, foes, k] * inter_dist[f, j, foes, k]^(-alpha)) + lambda[f,i] - mu_R[f,i,j] == 0;
 
+derivative_pow_J{f in S, i in F[f], foes in S, k in F[foes]: foes != f}: sum{foes2 in S, l in F[foes2]: foes2 != f and l != k} (varrho * pow[foes, l, k] * (intra_dist[foes, l, k]^(-alpha)) * (inter_dist[f, i, foes, k]^(-alpha)))/(sigmasqr + varrho * (sum{j in F[f]: j != i} (pow_J[f, j, foes, k] * (inter_dist[f, j, foes, k]^(-alpha)))))^2 + lambda[f,i] - mu_J[f,i,foes,k] == 0;
+
 complement_lambda{f in S, i in F[f]}:
-   0 <= lambda[f,i] complements (sum{j in F[f]: j != i} pow_R[f, i, j] + sum{foes in S, k in F[foes]: foes != f} pow_J[f, i, foes, k] + c[f,i] * orig_dist[f,i] - maxpow[f,i]) <= 0;
+   0 <= lambda[f,i] complements (sum{j in F[f]: j != i} pow[f, i, j] + sum{foes in S, k in F[foes]: foes != f} pow_J[f, i, foes, k] + c[f,i] * orig_dist[f,i] - maxpow[f,i]) >= 0;
 
 complement_mu1{f in S, i in F[f], j in F[f]: i != j}:
-   0 <= mu_R[f,i,j] complements pow_R[f,i,j] <= 0;
+   0 <= mu_R[f,i,j] complements pow[f,i,j] >= 0;
 
 complement_mu2{f in S, i in F[f], foes in S, k in F[foes]: foes != f}:
-   0 <= mu_J[f,i,foes,k] complements pow_J[f,i,foes,k] <= 0;
+   0 <= mu_J[f,i,foes,k] complements pow_J[f,i,foes,k] >= 0;
 
 ###############################################################
 ####################### Data declaration ######################
@@ -135,7 +137,7 @@ solve;
 
 display x0, y0, maxpow;
 
-display x, y, pow_R, pow_J;
+display x, y, pow, pow_J;
 
 display intra_dist, inter_dist, ext_dist, orig_dist;
 
