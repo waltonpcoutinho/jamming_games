@@ -49,7 +49,7 @@ var x{i in ALL_AGENTS};
 var y{i in ALL_AGENTS};
 
 #Lagrange multipliers
-var lambda{i in ALL_AGENTS} >= 0;
+var lambda{i in ALL_AGENTS};
 var mu{i in ALL_AGENTS, j in ALL_AGENTS: j != i} >= 0;
 
 ###############################################################
@@ -97,16 +97,16 @@ partial_f1_x_def{t in TEAMS, i in FLEET[t]}:
       (-varrho * pow[t, j, i] * alpha * (dist[j,i])^(-alpha - 2))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * dist[k, i]^(-alpha))
    )*(x[i] - x[j])
    + sum{j in FLEET[t]: j != i}(
-      (-varrho * pow[t, j, i] * (dist[j,i])^(-alpha) * (-alpha * varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} dist[k, i]^(-alpha - 2)))
+      (-varrho * pow[t, j, i] * (dist[j,i])^(-alpha) * (-alpha * varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * dist[k, i]^(-alpha - 2)*(x[i] - x[k])))
       /
       (sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * dist[k, i]^(-alpha))^2
-   )*(x[i] - x[j])
+   )
    ;
 
 partial_f2_x_def{t in TEAMS, i in FLEET[t]}:
    partial_f2_x[i] = sum{t2 in TEAMS, k in FLEET[t2], l in FLEET[t2]: t2 != t and k != l}(
-      ((alpha * varrho^2 * pow[t2, k, l] * pow_J[i, l] * (dist[k,l])^(-alpha) * (dist[i, l])^(-alpha - 2))/(sigmasqr + varrho * sum{j in FLEET[t]: j != i} pow_J[j, l] * dist[j, l]^(-alpha))^2)
-      *(x[i] - x[l])
+      ((alpha * varrho^2 * pow[t2, k, l] * pow_J[i, l] * (dist[k,l])^(-alpha) * (dist[i, l])^(-alpha - 2))/
+      (sigmasqr + varrho * sum{j in FLEET[t]: j != i} pow_J[j, l] * dist[j, l]^(-alpha))^2)*(x[i] - x[l])
    );
 
 # Lagrange critical points
@@ -120,13 +120,19 @@ partial_L_x{t in TEAMS, i in FLEET[t]}:
    partial_f1_x[i] - partial_f2_x[i] 
    + ((c[i]*lambda[i])/(dist0[i]))*(x[i] - x0[i]) = 0;
 
+# Feasibility conditions
+power_feasibility{t in TEAMS, i in FLEET[t]}:
+   sum{j in FLEET[t]: j != i} pow[t, i, j]
+      + sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[i, k]
+      + c[i] * (x[i] - x0[i]) - maxpow[i] == 0;
+
 # Complementarity conditions
 complementarity1{t in TEAMS, i in FLEET[t]}:
-   0 <= lambda[i] complements (
+   lambda[i] complements (
       sum{j in FLEET[t]: j != i} pow[t, i, j]
       + sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[i, k]
       + c[i] * (x[i] - x0[i]) - maxpow[i]
-   ) >= 0;
+   ) == 0;
 
 complementarity2{t in TEAMS, i in FLEET[t], j in FLEET[t]: j != i}:
    0 <= mu[i,j] complements pow[t, i, j] >= 0;
@@ -135,29 +141,11 @@ complementarity3{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
    0 <= mu[i,k] complements pow_J[i,k] >= 0;
 
 ###############################################################
-########################## Data set up ########################
-###############################################################
-
-data;
-
-set TEAMS := 1 2;
-set FLEET[1] := 'a' 'b';
-set FLEET[2] := 'A' 'B';
-
-param varrho := 1;
-param alpha := 2;
-param sigmasqr := 1;
-
-param: x0 y0 maxpow c :=
-a -1 +1 1 1
-b +1 +1 1 1
-A -1 -1 1 1
-B +1 -1 1 1
-;
-
-###############################################################
 ######################## Solve model ##########################
 ###############################################################
+
+#load data
+data toy_problem.dat;
 
 #option solver pathampl;
 option solver knitro;
