@@ -1,0 +1,10 @@
+reset;
+
+option solver knitro;
+
+model player1.mod;
+
+data initial_p2.dat;
+
+solve;
+

@@ -1,0 +1,154 @@
+
+     LGO Solver System for Global and Local Nonlinear Optimization
+
+     (C) Janos D. Pinter
+     Pinter Consulting Services, Inc., Canada
+     Website: www.pinterconsulting.com
+
+     LGO solver suite release version 2015-01-17
+     LGO run started at               2024- 3-13 15:25:55
+     LGO license verified for this computer                     0
+
+     --- LGO calling parameter values (partial listing) ---
+
+     modname    /tmp/at679953       
+     nvars                        20
+     ncons                         4
+     varname(1) _svar[1]            
+     objname    _sobj[1]            
+     conname(1) _scon[1]            
+     contype(1)                   -1
+     defbnd              10000.00000
+     varlb(1)      -10000.0000000000
+     varnom(1)          1.0000010000
+     varub(1)       10000.0000000000
+     opmode                        3
+     g_maxfct                  33800
+     max_nosuc                 33800
+     l_maxfct                  33800
+     pen_mult           1.0000000000
+     g_target     -10000000000.00000
+     l_target     -10000000000.00000
+     fi_tol             0.0000000100
+     con_tol            0.0000000100
+     kt_tol             0.0000000100
+     irngs                         0
+     tlimit              -1534572912
+     iprl                          3
+
+     --- Initial function evaluation at given nominal solution ---
+
+     Objective function value                        0.0020000004
+
+     Variables
+         1          1.0000010000
+         2         -0.9999990000
+         3          1.0000010000
+         4          1.0000010000
+         5          0.0000000000
+         6          0.0000000000
+         7          0.0000000000
+         8          0.0000000000
+         9          0.0000000000
+        10          0.0000000000
+        11          0.0000000000
+        12          0.0000000000
+        13          0.0000000000
+        14          0.0000000000
+        15          0.0000000000
+        16          0.0000000000
+        17          1.0000010000
+        18         -0.9999990000
+        19         -0.9999990000
+        20         -0.9999990000
+
+     Constraints
+         1         -0.9999998586
+         2         -0.9999998586
+         3         -0.0999985858
+         4         -0.0999985858
+
+     --- Local search results ---
+
+     Local search target function value     ********************
+     has been attained at a feasible point: run will be terminated
+
+     Number of function evaluations                           283
+
+     Objective function value                ********************
+
+     Variables
+         1          0.9991142387
+         2         -0.9000000000
+         3          0.9991142387
+         4          1.0000009484
+         5          0.0000000000
+         6          0.0000000000
+         7         25.0798778085
+         8          0.2501834490
+         9          0.0000000000
+        10          0.0000000000
+        11          0.0000000000
+        12          0.0000000000
+        13          0.0000000000
+        14          0.0000000000
+        15          0.0000000000
+        16          0.0000000000
+        17          0.0000010834
+        18          0.0000010849
+        19         -0.9999990000
+        20         -0.9999990000
+
+     Constraints
+         1         -0.9998747344
+         2         -0.9900000000
+         3         -0.0987473444
+         4         -0.0000000000
+
+     --- LGO solver results ---
+
+     Model name /tmp/at679953       
+
+     Number of function evaluations                           283
+
+     Objective function name _sobj[1]            
+
+     Objective function value                ********************
+
+     Variables
+             1   _svar[1]                            0.9991142387
+             2   _svar[2]                           -0.9000000000
+             3   _svar[3]                            0.9991142387
+             4   _svar[4]                            1.0000009484
+             5   _svar[5]                            0.0000000000
+             6   _svar[6]                            0.0000000000
+             7   _svar[7]                           25.0798778085
+             8   _svar[8]                            0.2501834490
+             9   _svar[9]                            0.0000000000
+            10   _svar[10]                           0.0000000000
+            11   _svar[11]                           0.0000000000
+            12   _svar[12]                           0.0000000000
+            13   _svar[13]                           0.0000000000
+            14   _svar[14]                           0.0000000000
+            15   _svar[15]                           0.0000000000
+            16   _svar[16]                           0.0000000000
+            17   _svar[17]                           0.0000010834
+            18   _svar[18]                           0.0000010849
+            19   _svar[19]                          -0.9999990000
+            20   _svar[20]                          -0.9999990000
+
+     Constraints
+             1   _scon[1]                           -0.9998747344
+             2   _scon[2]                           -0.9900000000
+             3   _scon[3]                           -0.0987473444
+             4   _scon[4]                           -0.0000000000
+
+     All constraints are met within tolerance        0.0000000100
+
+     Solver status indicator value 2 Run terminated by solver                
+
+     Model status indicator value  2 Local search based feasible solution    
+
+     LGO solver system execution time (seconds)              0.01
+
+     --- LGO operations completed ---

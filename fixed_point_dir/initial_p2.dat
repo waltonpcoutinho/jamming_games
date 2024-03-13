@@ -1,0 +1,27 @@
+###############################################################
+####################### Set parameters ########################
+###############################################################
+
+set FLEET2 := 'a' 'b';
+
+param: x0 y0 :=
+a 1 -1 
+b -1 -1
+;
+
+#initialise model parameters
+let {i in FLEET2} maxpow[i] := 1;
+let {i in FLEET2} c[i] := 0.1;
+let {i in FLEET2} delta[i] := 0.1;
+
+#initialise array of previous solution
+let {i in FLEET2} x_hat[i] := 1; # << read from file
+let {i in FLEET2} y_hat[i] := 1; # << read from file
+
+#initialise variables
+let {i in FLEET2} x[i] := x0[i] + eps;
+let {i in FLEET2} y[i] := y0[i] + eps;
+
+
+
+

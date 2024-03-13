@@ -27,6 +27,7 @@ set ALL_AGENTS := union {i in TEAMS} FLEET[i];
 param varrho; # Antenna parameter
 param alpha; # Path-loss coefficient
 param sigmasqr; # Background noise
+param eps; # General purpose tolerance parameter
 
 # Vector parameters
 # initial (x,y) position of agent i in fleet f
@@ -64,9 +65,11 @@ var dist{i in ALL_AGENTS, j in ALL_AGENTS: j != i} = sqrt((x[i] - x[j])^2 + (y[i
 
 # Derivatives
 var partial_f1_pow{i in ALL_AGENTS, j in ALL_AGENTS: j != i};
-var partial_f2_pow_J{i in ALL_AGENTS, j in ALL_AGENTS: j != i};
+var neg_partial_f2_pow_J{i in ALL_AGENTS, j in ALL_AGENTS: j != i};
 var partial_f1_x{i in ALL_AGENTS};
+var partial_f1_y{i in ALL_AGENTS};
 var partial_f2_x{i in ALL_AGENTS};
+var partial_f2_y{i in ALL_AGENTS};
 
 ###############################################################
 ###################### Model formulation ######################
@@ -81,57 +84,61 @@ subject to
 
 # Aux variables
 partial_f1_partial_p{t in TEAMS, i in FLEET[t], j in FLEET[t]: i !=j}:
-   partial_f1_pow[i,j] = (varrho * dist[i, j]^(-alpha))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * dist[k, j]^(-alpha));
+   partial_f1_pow[i,j] = (varrho * (dist[i, j]^(-alpha)))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * (dist[k, j]^(-alpha)));
 
-partial_f2_partial_p{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
-   partial_f2_pow_J[i,k] = sum{t2 in TEAMS, l in FLEET[t2]: t2 != t and l != k}(
-      (varrho * pow[t2, l, k] * (dist[l, k]^(-alpha)) * (dist[i, k]^(-alpha)))/
-      (sigmasqr + varrho * sum{j in FLEET[t]: j != i} (pow_J[j, k] * dist[j, k]^(-alpha)))^2
-   );
+neg_partial_f2_partial_p{t in TEAMS, i in FLEET[t], t2 in TEAMS, k in FLEET[t2]: t2 != t}:
+   neg_partial_f2_pow_J[i,k] = sum{l in FLEET[t2]: l != k}(
+      (varrho * pow[t2, l, k] * (dist[l, k]^(-alpha)) * (dist[i, k]^(-alpha)))/(sigmasqr + varrho * sum{j in FLEET[t]} (pow_J[j, k] * (dist[j, k]^(-alpha))))^2);
 
 partial_f1_x_def{t in TEAMS, i in FLEET[t]}:
-   partial_f1_x[i] = sum{j in FLEET[t]: j != i}(
-      (-varrho * pow[t, i, j] * alpha * (dist[i,j])^(-alpha - 2))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * dist[k, j]^(-alpha))
-   )*(x[i] - x[j])
-   +  sum{j in FLEET[t]: j != i}(
-      (-varrho * pow[t, j, i] * alpha * (dist[j,i])^(-alpha - 2))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * dist[k, i]^(-alpha))
-   )*(x[i] - x[j])
-   + sum{j in FLEET[t]: j != i}(
-      (-varrho * pow[t, j, i] * (dist[j,i])^(-alpha) * (-alpha * varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * dist[k, i]^(-alpha - 2)*(x[i] - x[k])))
-      /
-      (sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * dist[k, i]^(-alpha))^2
-   )
-   ;
+   partial_f1_x[i] = sum{j in FLEET[t]: j != i}
+      ((-varrho * pow[t, i, j] * alpha * (dist[i,j]^(-alpha - 2)))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * (dist[k, j]^(-alpha))))*(x[i] - x[j])
+   +  sum{j in FLEET[t]: j != i}
+      ((-varrho * pow[t, j, i] * alpha * (dist[j,i]^(-alpha - 2)))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * (dist[k, i]^(-alpha))))*(x[i] - x[j])
+   + sum{j in FLEET[t]: j != i}
+      (-varrho * pow[t, j, i] * (dist[j,i]^(-alpha)) * (-alpha * varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * (dist[k, i]^(-alpha - 2))*(x[i] - x[k])))/((sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * (dist[k, i]^(-alpha)))^2);
+
+partial_f1_y_def{t in TEAMS, i in FLEET[t]}:
+   partial_f1_y[i] = sum{j in FLEET[t]: j != i}
+      ((-varrho * pow[t, i, j] * alpha * (dist[i,j]^(-alpha - 2)))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, j] * (dist[k, j]^(-alpha))))*(y[i] - y[j])
+   +  sum{j in FLEET[t]: j != i}
+      ((-varrho * pow[t, j, i] * alpha * (dist[j,i]^(-alpha - 2)))/(sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * (dist[k, i]^(-alpha))))*(y[i] - y[j])
+   + sum{j in FLEET[t]: j != i}
+      (-varrho * pow[t, j, i] * (dist[j,i]^(-alpha)) * (-alpha * varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * (dist[k, i]^(-alpha - 2))*(y[i] - y[k])))/((sigmasqr + varrho * sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[k, i] * (dist[k, i]^(-alpha)))^2);
 
 partial_f2_x_def{t in TEAMS, i in FLEET[t]}:
-   partial_f2_x[i] = sum{t2 in TEAMS, k in FLEET[t2], l in FLEET[t2]: t2 != t and k != l}(
-      ((alpha * varrho^2 * pow[t2, k, l] * pow_J[i, l] * (dist[k,l])^(-alpha) * (dist[i, l])^(-alpha - 2))/
-      (sigmasqr + varrho * sum{j in FLEET[t]: j != i} pow_J[j, l] * dist[j, l]^(-alpha))^2)*(x[i] - x[l])
-   );
+   partial_f2_x[i] = sum{t2 in TEAMS, k in FLEET[t2], l in FLEET[t2]: t2 != t and k != l}(alpha * varrho^2 * pow[t2, k, l] * pow_J[i, l] * (dist[k,l]^(-alpha)) * (dist[i, l]^(-alpha - 2)))*(x[i] - x[l])/((sigmasqr + varrho * sum{j in FLEET[t]} pow_J[j, l] * (dist[j, l]^(-alpha)))^2);
+
+partial_f2_y_def{t in TEAMS, i in FLEET[t]}:
+   partial_f2_y[i] = sum{t2 in TEAMS, k in FLEET[t2], l in FLEET[t2]: t2 != t and k != l}(alpha * varrho^2 * pow[t2, k, l] * pow_J[i, l] * (dist[k,l]^(-alpha)) * (dist[i, l]^(-alpha - 2)))*(y[i] - y[l])/((sigmasqr + varrho * sum{j in FLEET[t]} pow_J[j, l] * (dist[j, l]^(-alpha)))^2);
 
 # Lagrange critical points
 partial_L_p{t in TEAMS, i in FLEET[t], j in FLEET[t]: j != i}:
    partial_f1_pow[i,j] + lambda[i] - mu[i,j] = 0;
 
 partial_L_pJ{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
-   partial_f2_pow_J[i,k] + lambda[i] - mu[i,k] = 0;
+   neg_partial_f2_pow_J[i,k] + lambda[i] - mu[i,k] = 0;
 
 partial_L_x{t in TEAMS, i in FLEET[t]}:
    partial_f1_x[i] - partial_f2_x[i] 
    + ((c[i]*lambda[i])/(dist0[i]))*(x[i] - x0[i]) = 0;
 
+partial_L_y{t in TEAMS, i in FLEET[t]}:
+   partial_f1_y[i] - partial_f2_y[i] 
+   + ((c[i]*lambda[i])/(dist0[i]))*(y[i] - y0[i]) = 0;
+
 # Feasibility conditions
 power_feasibility{t in TEAMS, i in FLEET[t]}:
    sum{j in FLEET[t]: j != i} pow[t, i, j]
       + sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[i, k]
-      + c[i] * (x[i] - x0[i]) - maxpow[i] == 0;
+      + c[i] * dist0[i] - maxpow[i] == 0;
 
 # Complementarity conditions
 complementarity1{t in TEAMS, i in FLEET[t]}:
    lambda[i] complements (
       sum{j in FLEET[t]: j != i} pow[t, i, j]
       + sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[i, k]
-      + c[i] * (x[i] - x0[i]) - maxpow[i]
+      + c[i] * dist0[i] - maxpow[i]
    ) == 0;
 
 complementarity2{t in TEAMS, i in FLEET[t], j in FLEET[t]: j != i}:
@@ -147,7 +154,7 @@ complementarity3{t in TEAMS, i in FLEET[t], k in ALL_AGENTS: k not in FLEET[t]}:
 #load data
 data toy_problem.dat;
 
-#option solver pathampl;
+# option solver pathampl;
 option solver knitro;
 option presolve 0;
 solve;
@@ -161,6 +168,12 @@ display ALL_AGENTS;
 display x0, y0, maxpow, c;
 
 display x, y, pow, pow_J;
+
+for{t in TEAMS, i in FLEET[t]}
+   display sum{j in FLEET[t]: j != i} pow[t, i, j]
+      + sum{k in ALL_AGENTS: k not in FLEET[t]} pow_J[i, k]
+      + c[i] * (x[i] - x0[i]);
+;
 
 display dist0, dist;
 
