@@ -1,0 +1,462 @@
+##################################################################
+# AMPL script for the fixed-point algorithm for the jamming
+# trajectory optimisation game
+# 
+# Author: J. Fliege and Walton P.C.
+# Date: 04/04/2024
+#
+# Version: 12/05/2024
+#
+# Type "ampl jamming.run" in a terminal to run the script
+# The code assumes that "setup_data.py" has been called previously
+##################################################################
+
+# Reset AMPL's environment
+reset;
+
+# Terminate the whole AMPL session after X
+# errors or warnings
+# option eexit 999;
+
+# Set solver up
+option presolve_eps 1.2e-05;
+option solver knitro;
+option minos_options "outlev=2";
+
+# AMPL's include directories command is blooddy awful as one needs
+# specify folders in the specific format below and documentation is
+# almost inexistent. It took me a couple of hours to figure it out
+# source1: https://www.netlib.org/ampl/changes
+# source2: https://groups.google.com/g/ampl/c/wOTuvQPtcvE/m/-ilL7zcRBwAJ
+# This option only affects the data, model and include commands!
+option ampl_include '.\
+Inst_Data\
+Manual_Data';
+
+display $ampl_include;
+
+# ampl_include option does not change teh behaviour of the read command
+# bloody hell, hours wasted on the command above for nothing. To read
+# files from a different directory one needs to specify auxiliary 
+# variables and use then in every read command
+# Set directories for data manipulation by creating symbolic
+# variables and then assigning them values
+param solData_dir symbolic;
+let solData_dir := "Solution/";
+
+# Define base model
+model player1_prob.mod;
+
+# Set parameters with constant data
+# The code assumes that "setup_data.py" has been run
+data scalars.dat;
+data time_set.dat;
+data data_team1.dat;     
+data fleet_team1.dat;
+data fleet_team2.dat;
+
+# Read communication matrices
+read{i in FLEET1, j in FLEET1} comms_matrix_p1[i, j] < ("Inst_Data\" & "comms_matrix_p1.dat");
+close ("Inst_Data\" & "comms_matrix_p1.dat");
+read{k in FLEET2, l in FLEET2} comms_matrix_p2[k, l] < ("Inst_Data\" & "comms_matrix_p2.dat");
+close ("Inst_Data\" & "comms_matrix_p2.dat");
+
+# Read jamming matrices
+read{i in FLEET1, l in FLEET2} jam_matrix_p1[i, l] < ("Inst_Data\" & "jams_matrix_p1.dat");
+close ("Inst_Data\" & "jams_matrix_p1.dat");
+read{k in FLEET2, j in FLEET1} jam_matrix_p2[k, j] < ("Inst_Data\" & "jams_matrix_p2.dat");
+close ("Inst_Data\" & "jams_matrix_p2.dat");
+
+# Initial guess for player 2 (constants)
+for{i in FLEET2}{
+   for{t in Time}{
+      read x_p2[i, t] < ("Manual_Data\" & "init_guess_p2.dat");
+   }
+   for{t in Time}{
+      read y_p2[i, t] < ("Manual_Data\" & "init_guess_p2.dat");
+   }
+   for{t in Time}{
+      read z_p2[i, t] < ("Manual_Data\" & "init_guess_p2.dat");
+   }
+   for{j in FLEET2: i != j}{
+      for{t in Time}{
+         read pow_p2[i, j, t] < ("Manual_Data\" & "init_guess_p2.dat");
+      }
+   }
+   for{k in FLEET1}{
+      for{l in FLEET1: l != k}{
+         for{t in Time}{
+            read jam_pow_p2[i, k, l, t] < ("Manual_Data\" & "init_guess_p2.dat");
+         }
+      }
+   }
+   for {j in FLEET2: i != j}{
+      for{t in Time}{
+         read distance_p2[i, j, t] < ("Manual_Data\" & "init_guess_p2.dat");
+      }
+   }
+}
+
+# Initialise the regularisation term saving into file
+param uniform_ub = 0.1;
+for{i in FLEET1}{
+   for{t in Time}{
+      print x0[i] + Uniform(0,uniform_ub) > (solData_dir & "reg_value_1.dat");
+   }
+   for{t in Time}{
+      print y0[i] + Uniform(0,uniform_ub) > (solData_dir & "reg_value_1.dat");
+   }
+   for{t in Time}{
+      print z0[i] + Uniform(0,uniform_ub) > (solData_dir & "reg_value_1.dat");
+   }
+}
+for{i in FLEET1}{# we aren't using idxs in the file so it doesn't matter (double check!)
+   for{t in Time}{
+      print x0[i] + Uniform(0,uniform_ub) > (solData_dir & "reg_value_2.dat");
+   }
+   for{t in Time}{
+      print y0[i] + Uniform(0,uniform_ub) > (solData_dir & "reg_value_2.dat");
+   }
+   for{t in Time}{
+      print z0[i] + Uniform(0,uniform_ub) > (solData_dir & "reg_value_2.dat");
+   }
+}
+
+# Main loop of the fixed-point algorithm
+for{it in 1..10}{
+   print 'Iteration:', it;
+
+   # Erase previous data and redefine team1's data
+   reset data x0, y0, z0, maxpow, c, delta, x_hat, y_hat, z_hat;
+   reset data comms_matrix_p1, comms_matrix_p2;
+   reset data jam_matrix_p1, jam_matrix_p2;
+
+   # Read communication matrices
+   read{i in FLEET1, j in FLEET1} comms_matrix_p1[i, j] < ("Inst_Data\" & "comms_matrix_p1.dat");
+   close ("Inst_Data\" & "comms_matrix_p1.dat");
+   read{k in FLEET2, l in FLEET2} comms_matrix_p2[k, l] < ("Inst_Data\" & "comms_matrix_p2.dat");
+   close ("Inst_Data\" & "comms_matrix_p2.dat");
+
+   # Read jamming matrices
+   read{i in FLEET1, l in FLEET2} jam_matrix_p1[i, l] < ("Inst_Data\" & "jams_matrix_p1.dat");
+   close ("Inst_Data\" & "jams_matrix_p1.dat");
+   read{k in FLEET2, j in FLEET1} jam_matrix_p2[k, j] < ("Inst_Data\" & "jams_matrix_p2.dat");
+   close ("Inst_Data\" & "jams_matrix_p2.dat");
+   
+   # Initialise regularisation values from file
+   for{i in FLEET1}{
+      for{t in Time}{
+         read x_hat[i, t] < (solData_dir & "reg_value_1.dat");
+      }
+      for{t in Time}{
+         read y_hat[i, t] < (solData_dir & "reg_value_1.dat");
+      }
+      for{t in Time}{
+         read z_hat[i, t] < (solData_dir & "reg_value_1.dat");
+      }
+   }
+
+   # Declare team 1's data again
+   data data_team1.dat;
+
+   # Solve player 1 problem with data from player 2:
+   solve;
+
+   # shell "pause";
+
+   # Print some log
+   print 'Player 1 obj:', obj;
+   print obj > (solData_dir & "obj_convergence_p1.dat");
+
+   # Print power levels to file
+   printf "%d ", it > (solData_dir & "power_p1.dat"); 
+   for{i in FLEET1}{
+      for{j in FLEET1: i != j}{
+         for{t in Time}{
+            printf "%.6f ", pow[i, j, t] > (solData_dir & "power_p1.dat");
+         }
+      }
+      printf "\n" > (solData_dir & "power_p1.dat");
+      for{k in FLEET2}{
+         for{l in FLEET2: l != k}{
+            for{t in Time}{
+               printf "%.6f ", jam_pow[i, k, l, t] > (solData_dir & "power_p1.dat");
+            }
+         }
+      }
+      printf "\n" > (solData_dir & "power_p1.dat");
+   }
+   printf "\n" > (solData_dir & "power_p1.dat");
+
+   # Store team 1 solution to file for player 2 to access
+   close (solData_dir & "solution_p1.dat");
+   if match(solve_message, "optimal") > 0 then{
+      print "Storing team 1 solution to file ...";
+      for{i in FLEET1}{
+         for{t in Time}{
+            print x[i, t] > (solData_dir & "solution_p1.dat");
+         }
+         for{t in Time}{
+            print y[i, t] > (solData_dir & "solution_p1.dat");
+         }
+         for{t in Time}{
+            print z[i, t] > (solData_dir & "solution_p1.dat");
+         }
+         for{j in FLEET1: i != j}{
+            for{t in Time}{
+               print pow[i,j,t] > (solData_dir & "solution_p1.dat");
+            }
+         }
+         for{k in FLEET2}{
+            for{l in FLEET2: l != k}{
+               for{t in Time}{
+                  print jam_pow[i, k, l, t] > (solData_dir & "solution_p1.dat");
+               }
+            }
+         }
+         for{j in FLEET1: i != j}{
+            for{t in Time}{
+               print distance1[i,j,t] > (solData_dir & "solution_p1.dat");
+            }
+         }
+      }
+   }
+
+   # Store position into file to use as regularisation values
+   for{i in FLEET1}{
+      for{t in Time}{
+         print x[i, t] > (solData_dir & "reg_value_1.dat");
+      }
+      for{t in Time}{
+         print y[i, t] > (solData_dir & "reg_value_1.dat");
+      }
+      for{t in Time}{
+         print z[i, t] > (solData_dir & "reg_value_1.dat");
+      }
+   }
+
+   # Solve player 2 problem with data from player 1
+   # We just pretend that we are player 2 now, using the 
+   # same model as player 1, with data  from player 1 as parameters.
+
+   # Note that just 'reset;' does not work, as it deletes all data
+   update data;
+
+   # Swap the fleets
+   let TEMP_FLEET := FLEET1;
+   let FLEET1 := FLEET2;
+   let FLEET2 := TEMP_FLEET;
+
+   print 'Swaping fleets...';
+   print {i in FLEET1} i;
+   print {i in FLEET2} i;
+
+   # Erase previous data and redefine team2's data
+   reset data x0, y0, z0, maxpow, c, delta, x_hat, y_hat, z_hat;
+   reset data comms_matrix_p1, comms_matrix_p2;
+   reset data jam_matrix_p1, jam_matrix_p2;
+
+   # Declare data again
+   data data_team2.dat;
+
+   # Read communication matrices
+   # IMPORTANT: the order of the matrices (files) is swapped
+   read{i in FLEET1, j in FLEET1} comms_matrix_p1[i, j] < ("Inst_Data\" & "comms_matrix_p2.dat");
+   close ("Inst_Data\" & "comms_matrix_p2.dat");
+   read{k in FLEET2, l in FLEET2} comms_matrix_p2[k, l] < ("Inst_Data\" & "comms_matrix_p1.dat");
+   close ("Inst_Data\" & "comms_matrix_p1.dat");
+
+   # Read jamming matrices
+   # IMPORTANT: the order of the matrices (files) is swapped
+   read{i in FLEET1, l in FLEET2} jam_matrix_p1[i, l] < ("Inst_Data\" & "jams_matrix_p2.dat");
+   close ("Inst_Data\" & "jams_matrix_p2.dat");
+   read{k in FLEET2, j in FLEET1} jam_matrix_p2[k, j] < ("Inst_Data\" & "jams_matrix_p1.dat");
+   close ("Inst_Data\" & "jams_matrix_p1.dat");
+
+   # AMPL shenanigans: first one needs to reset
+   # the data, so that AMPL forgets about previous
+   # indexation of the parameters and then one
+   # needs to tell AMPL you want to udpate the data
+   # in order to be able to read from file
+   reset data x_p2, y_p2, z_p2, pow_p2, jam_pow_p2, distance_p2;
+   update data x_p2, y_p2, z_p2, pow_p2, jam_pow_p2, distance_p2;
+
+   # Read data from player 1 from file
+   for{i in FLEET2}{
+      for{t in Time}{
+         read x_p2[i, t] < (solData_dir & "solution_p1.dat");
+      }
+      for{t in Time}{
+         read y_p2[i, t] < (solData_dir & "solution_p1.dat");
+      }
+      for{t in Time}{
+         read z_p2[i, t] < (solData_dir & "solution_p1.dat");
+      }
+      for{j in FLEET2: i != j}{
+         for{t in Time}{
+            read pow_p2[i, j, t] < (solData_dir & "solution_p1.dat");
+         }
+      }
+      for{k in FLEET1}{
+         for{l in FLEET1: l != k}{
+            for{t in Time}{
+               read jam_pow_p2[i, k, l, t] < (solData_dir & "solution_p1.dat");
+            }
+         }
+      }
+      for {j in FLEET2: i != j}{
+         for{t in Time}{
+            read distance_p2[i, j, t] < (solData_dir & "solution_p1.dat");
+         }
+      }
+   }
+
+   # Initialise regularisation values from file
+   for{i in FLEET1}{
+      for{t in Time}{
+         read x_hat[i, t] < (solData_dir & "reg_value_2.dat");
+      }
+      for{t in Time}{
+         read y_hat[i, t] < (solData_dir & "reg_value_2.dat");
+      }
+      for{t in Time}{
+         read z_hat[i, t] < (solData_dir & "reg_value_2.dat");
+      }
+   }
+
+   # Solve player 2 problem with data from player 1
+   solve;
+
+   # Print some log
+   print 'Player 2 obj:', obj;
+   print obj > (solData_dir & "obj_convergence_p2.dat");
+   
+   # Print power levels to file
+   printf "%d ", it > (solData_dir & "power_p2.dat"); 
+   for{i in FLEET1}{
+      for{j in FLEET1: i != j}{
+         for{t in Time}{
+            printf "%.6f ", pow[i, j, t] > (solData_dir & "power_p2.dat");
+         }
+      }
+      for{k in FLEET2}{
+         for{l in FLEET2: l != k}{
+            for{t in Time}{
+               printf "%.6f ", jam_pow[i, k, l, t] > (solData_dir & "power_p2.dat");
+            }
+         }
+      }
+   }
+   printf "\n" > (solData_dir & "power_p2.dat");
+
+   # Store player 2 solution to file for player 1 to access
+   close (solData_dir & "solution_p2.dat");
+   if match(solve_message, "optimal") > 0 then{
+      print "Storing team 2 solution to file ...";
+      for{i in FLEET1}{
+         for{t in Time}{
+            print x[i, t] > (solData_dir & "solution_p2.dat");
+         }
+         for{t in Time}{
+            print y[i, t] > (solData_dir & "solution_p2.dat");
+         }
+         for{t in Time}{
+            print z[i, t] > (solData_dir & "solution_p2.dat");
+         }
+         for{j in FLEET1: i != j}{
+            for{t in Time}{
+               print pow[i, j, t] > (solData_dir & "solution_p2.dat");
+            }
+         }
+         for{k in FLEET2}{
+            for{l in FLEET2: l != k}{
+               for{t in Time}{
+                  print jam_pow[i, k, l, t] > (solData_dir & "solution_p2.dat");
+               }
+            }
+         }
+         for{j in FLEET1: i != j}{
+            for{t in Time}{
+               print distance1[i, j, t] > (solData_dir & "solution_p2.dat");
+            }
+         }
+      }
+   }
+
+   # Store position into file to use as regularisation values
+   for {i in FLEET1}{
+      for{t in Time}{
+         print x[i, t] > (solData_dir & "reg_value_2.dat");
+      }
+      for{t in Time}{
+         print y[i, t] > (solData_dir & "reg_value_2.dat");
+      }
+      for{t in Time}{
+         print z[i, t] > (solData_dir & "reg_value_2.dat");
+      }
+   }
+
+   update data;
+   # Un-sawp the fleets
+   print 'Undo swaping fleets...';
+   let TEMP_FLEET := FLEET1;
+   let FLEET1 := FLEET2;
+   let FLEET2 := TEMP_FLEET;
+
+   # Erase previous data and redefine team1's data
+   reset data comms_matrix_p1, comms_matrix_p2;
+   reset data jam_matrix_p1, jam_matrix_p2;
+
+   # Read communication matrices
+   read{i in FLEET1, j in FLEET1} comms_matrix_p1[i, j] < ("Inst_Data\" & "comms_matrix_p1.dat");
+   close ("Inst_Data\" & "comms_matrix_p1.dat");
+   read{k in FLEET2, l in FLEET2} comms_matrix_p2[k, l] < ("Inst_Data\" & "comms_matrix_p2.dat");
+   close ("Inst_Data\" & "comms_matrix_p2.dat");
+
+   # Read jamming matrices
+   read{i in FLEET1, l in FLEET2} jam_matrix_p1[i, l] < ("Inst_Data\" & "jams_matrix_p1.dat");
+   close ("Inst_Data\" & "jams_matrix_p1.dat");
+   read{k in FLEET2, j in FLEET1} jam_matrix_p2[k, j] < ("Inst_Data\" & "jams_matrix_p2.dat");
+   close ("Inst_Data\" & "jams_matrix_p2.dat");
+
+   # AMPL shenanigans: first one needs to reset
+   # the data, so that AMPL forgets about previous
+   # indexation of the parameters and then one
+   # needs to tell AMPL you want to udpate the data
+   # in order to be able to read from file
+   reset data x_p2, y_p2, z_p2, pow_p2, jam_pow_p2, distance_p2;
+   update data x_p2, y_p2, z_p2, pow_p2, jam_pow_p2, distance_p2;
+
+   # Read data from player 2 from file
+   for {i in FLEET2}{
+      for{t in Time}{
+         read x_p2[i, t] < (solData_dir & "solution_p2.dat");
+      }
+      for{t in Time}{
+         read y_p2[i, t] < (solData_dir & "solution_p2.dat");
+      }
+      for{t in Time}{
+         read z_p2[i, t] < (solData_dir & "solution_p2.dat");
+      }
+      for{j in FLEET2: i != j}{
+         for{t in Time}{
+            read pow_p2[i, j, t] < (solData_dir & "solution_p2.dat");
+         }
+      }
+      for{k in FLEET1}{
+         for{l in FLEET1: l != k}{
+            for{t in Time}{
+               read jam_pow_p2[i, k, l, t] < (solData_dir & "solution_p2.dat");
+            }
+         }
+      }
+      for{j in FLEET2: i != j}{
+         for{t in Time}{
+            read distance_p2[i, j, t] < (solData_dir & "solution_p2.dat");
+         }
+      }
+   }
+} # END OF MAIN FOR LOOP
+
+# Print final log
+printf "\n\nFinished block-descent ...\n\n";

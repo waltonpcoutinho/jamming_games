@@ -1,0 +1,38 @@
+reset;
+
+option solver knitro;
+option minos_options 'outlev=2';
+
+model player1_prob.mod;
+
+option ampl_include "Inst_Data/";
+
+data scalars.dat;
+data time_set.dat;
+data data_team1.dat;     
+data fleet_team1.dat;
+data fleet_team2.dat;
+
+let{k in FLEET2, t in Time} x_p2[k,t] := eps;
+let{k in FLEET2, t in Time} y_p2[k,t] := eps;
+let{k in FLEET2, t in Time} z_p2[k,t] := eps;
+let{k in FLEET2, l in FLEET2, t in Time: k != l} pow_p2[k, l, t] := eps;
+let{k in FLEET2, j in FLEET1, t in Time} jam_pow_p2[k, j, t] := eps;
+let{k in FLEET2, l in FLEET2, t in Time: k != l} distance_p2[k, l, t] := eps;
+
+let{k in FLEET1, t in Time} x_hat[k,t] := t*eps;
+let{k in FLEET1, t in Time} y_hat[k,t] := t*eps;
+let{k in FLEET1, t in Time} z_hat[k,t] := t*eps;
+
+let{i in FLEET1, t in Time} x[i,t] := x0[i] + t*eps;
+let{i in FLEET1, t in Time} y[i,t] := y0[i] + t*eps;
+let{i in FLEET1, t in Time} z[i,t] := z0[i] + t*eps;
+let{i in FLEET1, j in FLEET1, t in Time: i != j} pow[i, j, t] := eps;
+let{i in FLEET1, k in FLEET2, t in Time} jam_pow[i, k, t] := eps;
+
+solve;
+
+display x, y, z;
+
+display pow, jam_pow;
+
