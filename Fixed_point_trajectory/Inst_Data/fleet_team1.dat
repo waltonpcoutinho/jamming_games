@@ -1,2 +1,0 @@
-# Define fleet 1
-set FLEET1 := 'A' 'B' 'C' 'G' ;
